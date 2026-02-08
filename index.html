@@ -302,14 +302,14 @@
     </div>
 
     <div class="copyright">
-        <span>Copyright Boanska • v3.9</span>
+        <span>Copyright Boanska • v3.11</span>
         <span>All rights reserved.</span>
     </div>
 </div>
 
 <script>
 /* ===== DATA STATE ===== */
-const STORAGE_KEY = 'antrenament_pro_v19_final';
+const STORAGE_KEY = 'antrenament_pro_v20_final';
 let state = {
     exercises: [{ id: 1, name: 'Flotări', settings: { type: 'fixed', fixedVal: 30, startDate: '2026-01-01' } }],
     currentExId: 1,
@@ -323,11 +323,53 @@ let timer = null;
 let incTimer = null; 
 let targetMetFlag = false;
 
-/* ===== AUDIO ENGINE (3375Hz & Muffled Bell) ===== */
+/* ===== WAKE LOCK + AUDIO INIT ===== */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let wakeLock = null;
+let wakeLockTimer = null;
+
+async function manageWakeLock() {
+    // 1. Request Wake Lock if not active
+    if (!wakeLock && 'wakeLock' in navigator) {
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+        } catch (err) { console.log('Wake Lock Error', err); }
+    }
+    
+    // 2. Reset 5 minute timer
+    clearTimeout(wakeLockTimer);
+    wakeLockTimer = setTimeout(() => {
+        if (wakeLock) {
+            wakeLock.release().then(() => { wakeLock = null; });
+        }
+    }, 5 * 60 * 1000); // 5 minutes
+}
+
+function unlockAudioAndWakeLock() {
+    // WAKE LOCK INIT
+    manageWakeLock();
+
+    // AUDIO INIT (Silent Buffer)
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => {
+            const buffer = audioCtx.createBuffer(1, 1, 22050);
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioCtx.destination);
+            source.start(0);
+        });
+    }
+    document.removeEventListener('click', unlockAudioAndWakeLock);
+    document.removeEventListener('touchstart', unlockAudioAndWakeLock);
+    document.removeEventListener('keydown', unlockAudioAndWakeLock);
+}
+
+document.addEventListener('click', unlockAudioAndWakeLock);
+document.addEventListener('touchstart', unlockAudioAndWakeLock);
+document.addEventListener('keydown', unlockAudioAndWakeLock);
 
 function playTickSound() {
-    if(audioCtx.state==="suspended")audioCtx.resume(); 
+    if(audioCtx.state==="suspended") return;
     const d=0.02, b=audioCtx.createBuffer(1,audioCtx.sampleRate*d,audioCtx.sampleRate), dt=b.getChannelData(0); 
     for(let i=0;i<dt.length;i++)dt[i]=(Math.random()*2-1)*Math.exp(-i/(dt.length/6)); 
     const s=audioCtx.createBufferSource(),g=audioCtx.createGain(); 
@@ -335,15 +377,14 @@ function playTickSound() {
 }
 
 function playBellSound() {
-    if(audioCtx.state==="suspended")audioCtx.resume();
+    if(audioCtx.state==="suspended") return;
     const t = audioCtx.currentTime;
     const osc1 = audioCtx.createOscillator();
     const osc2 = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     
-    // High Pitch 3375Hz
-    osc1.frequency.value = 3000; 
-    osc2.frequency.value = 4500; // Slight harmonic for sparkle
+    osc1.frequency.value = 3375; 
+    osc2.frequency.value = 4500; 
     
     osc1.connect(gain);
     osc2.connect(gain);
@@ -359,21 +400,19 @@ function playBellSound() {
 }
 
 function playSaveSound() {
-    if(audioCtx.state==="suspended")audioCtx.resume();
+    if(audioCtx.state==="suspended") return;
     const t = audioCtx.currentTime;
     const osc1 = audioCtx.createOscillator();
     const osc2 = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     
-    // Lower pitched bell structure (same as above but lower freq)
-    osc1.frequency.value = 3000; 
-    osc2.frequency.value = 2000; 
+    osc1.frequency.value = 800; 
+    osc2.frequency.value = 1600; 
     
     osc1.connect(gain);
     osc2.connect(gain);
     gain.connect(audioCtx.destination);
     
-    // Lower volume (0.04) and shorter decay (0.6s) -> Muffled
     gain.gain.setValueAtTime(0.04, t);
     gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
     
@@ -437,7 +476,6 @@ function updateUI(shouldTick) {
     const remValDiv = document.getElementById('rem-val');
     const remLabel = document.getElementById('rem-label');
     
-    // Check target threshold for Bell Sound
     if (currentTotalVal >= target && !targetMetFlag) {
         playBellSound();
         targetMetFlag = true;
@@ -568,11 +606,18 @@ function add(n) {
     currentTotalVal += n;
     if (currentTotalVal < checkpointMin) currentTotalVal = checkpointMin;
     const hasChanged = currentTotalVal !== prevVal;
+    
+    // Refresh wake lock on user interaction
+    manageWakeLock();
+    
     updateUI(hasChanged); 
     resetSessionTimer();
 }
 
-function manualSave() { if (currentTotalVal > checkpointMin) { finalizeSession(); clearTimeout(timer); } }
+function manualSave() { 
+    manageWakeLock(); // Refresh wake lock
+    if (currentTotalVal > checkpointMin) { finalizeSession(); clearTimeout(timer); } 
+}
 
 function resetSessionTimer() {
     clearTimeout(timer);
@@ -595,7 +640,7 @@ function finalizeSession() {
         checkpointMin = currentTotalVal;
         saveData();
         
-        playSaveSound(); // SOUND EFFECT
+        playSaveSound(); 
         
         incDisp.classList.add('evaporate');
         setTimeout(() => { incDisp.textContent=""; incDisp.classList.remove('show','evaporate'); }, 400);
@@ -631,6 +676,7 @@ function renderHistoryList() {
 function deleteHistoryItem(index, val, exId) {
     const el = document.getElementById(`hist-${index}`);
     el.classList.add('deleting'); activeSwipeEl = null;
+    manageWakeLock(); // Interaction
     if (viewDateStr === new Date().toDateString() && exId === state.currentExId) {
         currentTotalVal = Math.max(0, currentTotalVal - val);
         checkpointMin = Math.max(0, checkpointMin - val);
@@ -650,6 +696,7 @@ function swipeStart(e){
     if(e.pointerType==='mouse' && e.button!==0)return;
     if(activeSwipeEl && activeSwipeEl!==e.currentTarget){ activeSwipeEl.style.transform='translateX(0)'; activeSwipeEl=null; }
     startX=e.clientX; startY=e.clientY; isSwipeAction=false; pointerDown=true;
+    manageWakeLock(); // Interaction
     e.currentTarget.style.transition='none'; e.currentTarget.setPointerCapture(e.pointerId);
     const m = new DOMMatrix(window.getComputedStyle(e.currentTarget).transform); initialTranslate=m.m41;
 }
@@ -670,7 +717,7 @@ function swipeEnd(e){
 function initDesktopDragScroll(id) {
     const list = document.getElementById(id);
     let isDown=false, sY, sT;
-    list.onmousedown=(e)=>{if(isSwipeAction)return;isDown=true;sY=e.pageY-list.offsetTop;sT=list.scrollTop;list.style.cursor='grabbing';};
+    list.onmousedown=(e)=>{if(isSwipeAction)return;isDown=true;sY=e.pageY-list.offsetTop;sT=list.scrollTop;list.style.cursor='grabbing';manageWakeLock();};
     window.addEventListener('mouseup', ()=>{isDown=false;if(list)list.style.cursor='grab';});
     window.addEventListener('mousemove',(e)=>{if(!isDown||isSwipeAction)return;e.preventDefault();const y=e.pageY-list.offsetTop;const walk=(y-sY);list.scrollTop=sT-walk;});
 }
@@ -686,6 +733,7 @@ function formatDate(dateStr) {
 }
 
 function navHistoryDay(dir) {
+    manageWakeLock();
     const available = Object.keys(state.dailyLog).sort((a,b) => new Date(a) - new Date(b));
     if (!available.includes(new Date().toDateString())) available.push(new Date().toDateString());
     let idx = available.indexOf(viewDateStr);
@@ -696,6 +744,7 @@ function navHistoryDay(dir) {
 
 /* ===== SETTINGS & PANELS ===== */
 function togglePanel(id) {
+    manageWakeLock();
     const p = document.getElementById(id);
     const isOpen = p.style.display === "flex";
     p.style.display = isOpen ? 'none' : 'flex';
@@ -808,10 +857,10 @@ slider.addEventListener("input",e=>{ const v=parseInt(e.target.value); if(v>=che
 const wBox=document.getElementById('wheel-container');
 let isD=false, lA=0;
 function getA(x,y){const r=wBox.getBoundingClientRect();return Math.atan2(y-(r.top+r.height/2),x-(r.left+r.width/2))*180/Math.PI;}
-wBox.addEventListener('touchstart',e=>{isD=true;lA=getA(e.touches[0].clientX,e.touches[0].clientY);},{passive:true});
+wBox.addEventListener('touchstart',e=>{isD=true;lA=getA(e.touches[0].clientX,e.touches[0].clientY);manageWakeLock();},{passive:true});
 window.addEventListener('touchmove',e=>{if(!isD)return;const a=getA(e.touches[0].clientX,e.touches[0].clientY);let d=a-lA;if(d>180)d-=360;if(d<-180)d+=360;if(Math.abs(d)>10){add(d>0?1:-1);lA=a;}},{passive:false});
 window.addEventListener('touchend',()=>isD=false);
-wBox.addEventListener('mousedown',e=>{isD=true;lA=getA(e.clientX,e.clientY);});
+wBox.addEventListener('mousedown',e=>{isD=true;lA=getA(e.clientX,e.clientY);manageWakeLock();});
 window.addEventListener('mousemove',e=>{if(!isD)return;const a=getA(e.clientX,e.clientY);let d=a-lA;if(d>180)d-=360;if(d<-180)d+=360;if(Math.abs(d)>10){add(d>0?1:-1);lA=a;}});
 window.addEventListener('mouseup',()=>isD=false);
 
