@@ -302,14 +302,14 @@
     </div>
 
     <div class="copyright">
-        <span>Copyright Boanska • v3.11</span>
+        <span>Copyright Boanska • v3.12</span>
         <span>All rights reserved.</span>
     </div>
 </div>
 
 <script>
 /* ===== DATA STATE ===== */
-const STORAGE_KEY = 'antrenament_pro_v20_final';
+const STORAGE_KEY = 'antrenament_pro_v21_final';
 let state = {
     exercises: [{ id: 1, name: 'Flotări', settings: { type: 'fixed', fixedVal: 30, startDate: '2026-01-01' } }],
     currentExId: 1,
@@ -346,22 +346,10 @@ async function manageWakeLock() {
 }
 
 function unlockAudioAndWakeLock() {
-    // WAKE LOCK INIT
     manageWakeLock();
-
-    // AUDIO INIT (Silent Buffer)
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume().then(() => {
-            const buffer = audioCtx.createBuffer(1, 1, 22050);
-            const source = audioCtx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(audioCtx.destination);
-            source.start(0);
-        });
-    }
-    document.removeEventListener('click', unlockAudioAndWakeLock);
-    document.removeEventListener('touchstart', unlockAudioAndWakeLock);
-    document.removeEventListener('keydown', unlockAudioAndWakeLock);
+    // Warm-up audio silently
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    // No need to remove listener, let it refresh wake lock
 }
 
 document.addEventListener('click', unlockAudioAndWakeLock);
@@ -369,7 +357,7 @@ document.addEventListener('touchstart', unlockAudioAndWakeLock);
 document.addEventListener('keydown', unlockAudioAndWakeLock);
 
 function playTickSound() {
-    if(audioCtx.state==="suspended") return;
+    if(audioCtx.state === "suspended") audioCtx.resume();
     const d=0.02, b=audioCtx.createBuffer(1,audioCtx.sampleRate*d,audioCtx.sampleRate), dt=b.getChannelData(0); 
     for(let i=0;i<dt.length;i++)dt[i]=(Math.random()*2-1)*Math.exp(-i/(dt.length/6)); 
     const s=audioCtx.createBufferSource(),g=audioCtx.createGain(); 
@@ -377,7 +365,7 @@ function playTickSound() {
 }
 
 function playBellSound() {
-    if(audioCtx.state==="suspended") return;
+    if(audioCtx.state === "suspended") audioCtx.resume();
     const t = audioCtx.currentTime;
     const osc1 = audioCtx.createOscillator();
     const osc2 = audioCtx.createOscillator();
@@ -400,7 +388,7 @@ function playBellSound() {
 }
 
 function playSaveSound() {
-    if(audioCtx.state==="suspended") return;
+    if(audioCtx.state === "suspended") audioCtx.resume();
     const t = audioCtx.currentTime;
     const osc1 = audioCtx.createOscillator();
     const osc2 = audioCtx.createOscillator();
@@ -606,16 +594,13 @@ function add(n) {
     currentTotalVal += n;
     if (currentTotalVal < checkpointMin) currentTotalVal = checkpointMin;
     const hasChanged = currentTotalVal !== prevVal;
-    
-    // Refresh wake lock on user interaction
     manageWakeLock();
-    
     updateUI(hasChanged); 
     resetSessionTimer();
 }
 
 function manualSave() { 
-    manageWakeLock(); // Refresh wake lock
+    manageWakeLock();
     if (currentTotalVal > checkpointMin) { finalizeSession(); clearTimeout(timer); } 
 }
 
@@ -676,7 +661,7 @@ function renderHistoryList() {
 function deleteHistoryItem(index, val, exId) {
     const el = document.getElementById(`hist-${index}`);
     el.classList.add('deleting'); activeSwipeEl = null;
-    manageWakeLock(); // Interaction
+    manageWakeLock();
     if (viewDateStr === new Date().toDateString() && exId === state.currentExId) {
         currentTotalVal = Math.max(0, currentTotalVal - val);
         checkpointMin = Math.max(0, checkpointMin - val);
@@ -696,7 +681,7 @@ function swipeStart(e){
     if(e.pointerType==='mouse' && e.button!==0)return;
     if(activeSwipeEl && activeSwipeEl!==e.currentTarget){ activeSwipeEl.style.transform='translateX(0)'; activeSwipeEl=null; }
     startX=e.clientX; startY=e.clientY; isSwipeAction=false; pointerDown=true;
-    manageWakeLock(); // Interaction
+    manageWakeLock();
     e.currentTarget.style.transition='none'; e.currentTarget.setPointerCapture(e.pointerId);
     const m = new DOMMatrix(window.getComputedStyle(e.currentTarget).transform); initialTranslate=m.m41;
 }
