@@ -1022,7 +1022,7 @@ function toggleAdvanced(){document.getElementById('advanced-menu').classList.tog
 function exportData(){
     saveData();
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(state)],{type:"application/json"}));
-    a.download=`antrenament_backup_${new Date().toISOString().split('T')[0]}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    a.download=`FitBsk_backup_${new Date().toISOString().split('T')[0]}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 function importData(inp){
     const f=inp.files[0]; if(!f||!confirm(t('overwriteWarn')))return;
