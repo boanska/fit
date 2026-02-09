@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Antrenament Pro</title>
+<title>FitBsk</title>
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%231b1b1b'/%3E%3Ccircle cx='50' cy='50' r='40' fill='none' stroke='%2376d900' stroke-width='10'/%3E%3Ccircle cx='50' cy='50' r='15' fill='%233a3a3a'/%3E%3C/svg%3E">
 
 <style>
     :root { 
@@ -93,7 +95,16 @@
 
     .evaporate { transform: translateY(-15px) scale(1.1); opacity: 0 !important; transition: transform 0.4s ease-out, opacity 0.4s ease-out !important; }
 
-    .stats-zone { cursor: pointer; padding: 10px; border-radius: 15px; transition: 0.2s; flex-shrink: 0; }
+    /* --- STATS ZONE RESTRANS --- */
+    .stats-zone { 
+        cursor: pointer; padding: 15px; border-radius: 15px; 
+        transition: 0.2s; flex-shrink: 0; 
+        align-self: center; /* Centreaza si strange latimea */
+        width: auto; /* Latime doar cat content */
+        min-width: 150px; /* Un minim decent */
+    }
+    .stats-zone:active { background-color: #252525; transform: scale(0.98); }
+
     .done-val { font-size: 60px; font-weight: 800; color: #fff; line-height: 1; }
     .buttons { display: flex; gap: 12px; margin-top: auto; width: 100%; }
     .buttons button { flex: 1; padding: 20px 0; font-size: 20px; border-radius: 14px; border: none; background: #2a2a2a; color: #eee; cursor: pointer; font-weight: bold; }
@@ -151,7 +162,10 @@
 
     /* NAV & CALENDAR */
     .hist-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #252525; padding: 10px; border-radius: 12px; flex-shrink: 0; }
-    .nav-arrow { padding: 10px 20px; font-size: 20px; font-weight: bold; color: var(--primary); cursor: pointer; }
+    
+    .nav-arrow { padding: 10px 20px; font-size: 20px; font-weight: bold; color: var(--primary); cursor: pointer; transition: opacity 0.2s, color 0.2s; }
+    .nav-arrow.disabled { color: var(--text-muted); opacity: 0.3; pointer-events: none; }
+    
     .nav-date { font-size: 16px; font-weight: bold; cursor: pointer; color: #fff; }
 
     /* ADVANCED */
@@ -200,11 +214,11 @@
 
     <div id="history-panel" class="panel">
         <div class="hist-nav">
-            <div class="nav-arrow" onclick="navHistoryDay(-1)">&lt;</div>
+            <div class="nav-arrow" id="nav-left" onclick="navHistoryDay(-1)">&lt;</div>
             <div class="nav-date" onclick="openCalendar('history')">
                 <span id="nav-date-display">Azi</span>
             </div>
-            <div class="nav-arrow" onclick="navHistoryDay(1)">&gt;</div>
+            <div class="nav-arrow" id="nav-right" onclick="navHistoryDay(1)">&gt;</div>
         </div>
         <div class="discrete-hint history-header-hint">Glisează stânga pentru ștergere</div>
         <div id="history-list" class="scroll-list"></div>
@@ -302,14 +316,13 @@
     </div>
 
     <div class="copyright">
-        <span>Copyright Boanska • v3.12</span>
-        <span>All rights reserved.</span>
+        <span>&copy; BOANSKA • FitBsk • v4.0</span>
     </div>
 </div>
 
 <script>
 /* ===== DATA STATE ===== */
-const STORAGE_KEY = 'antrenament_pro_v21_final';
+const STORAGE_KEY = 'fitbsk_v4'; // NEW KEY
 let state = {
     exercises: [{ id: 1, name: 'Flotări', settings: { type: 'fixed', fixedVal: 30, startDate: '2026-01-01' } }],
     currentExId: 1,
@@ -329,27 +342,24 @@ let wakeLock = null;
 let wakeLockTimer = null;
 
 async function manageWakeLock() {
-    // 1. Request Wake Lock if not active
     if (!wakeLock && 'wakeLock' in navigator) {
-        try {
-            wakeLock = await navigator.wakeLock.request('screen');
-        } catch (err) { console.log('Wake Lock Error', err); }
+        try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
     }
-    
-    // 2. Reset 5 minute timer
     clearTimeout(wakeLockTimer);
     wakeLockTimer = setTimeout(() => {
-        if (wakeLock) {
-            wakeLock.release().then(() => { wakeLock = null; });
-        }
-    }, 5 * 60 * 1000); // 5 minutes
+        if (wakeLock) { wakeLock.release().then(() => { wakeLock = null; }); }
+    }, 5 * 60 * 1000); 
 }
 
 function unlockAudioAndWakeLock() {
     manageWakeLock();
-    // Warm-up audio silently
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    // No need to remove listener, let it refresh wake lock
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => {
+            const buffer = audioCtx.createBuffer(1, 1, 22050);
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer; source.connect(audioCtx.destination); source.start(0);
+        });
+    }
 }
 
 document.addEventListener('click', unlockAudioAndWakeLock);
@@ -367,57 +377,28 @@ function playTickSound() {
 function playBellSound() {
     if(audioCtx.state === "suspended") audioCtx.resume();
     const t = audioCtx.currentTime;
-    const osc1 = audioCtx.createOscillator();
-    const osc2 = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    
-    osc1.frequency.value = 3375; 
-    osc2.frequency.value = 4500; 
-    
-    osc1.connect(gain);
-    osc2.connect(gain);
-    gain.connect(audioCtx.destination);
-    
-    gain.gain.setValueAtTime(0.1, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
-    
-    osc1.start(t);
-    osc2.start(t);
-    osc1.stop(t + 1.2);
-    osc2.stop(t + 1.2);
+    const osc1 = audioCtx.createOscillator(); const osc2 = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+    osc1.frequency.value = 3375; osc2.frequency.value = 4500; 
+    osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
+    gain.gain.setValueAtTime(0.1, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+    osc1.start(t); osc2.start(t); osc1.stop(t + 1.2); osc2.stop(t + 1.2);
 }
 
 function playSaveSound() {
     if(audioCtx.state === "suspended") audioCtx.resume();
     const t = audioCtx.currentTime;
-    const osc1 = audioCtx.createOscillator();
-    const osc2 = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    
-    osc1.frequency.value = 800; 
-    osc2.frequency.value = 1600; 
-    
-    osc1.connect(gain);
-    osc2.connect(gain);
-    gain.connect(audioCtx.destination);
-    
-    gain.gain.setValueAtTime(0.04, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-    
-    osc1.start(t);
-    osc2.start(t);
-    osc1.stop(t + 0.6);
-    osc2.stop(t + 0.6);
+    const osc1 = audioCtx.createOscillator(); const osc2 = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+    osc1.frequency.value = 800; osc2.frequency.value = 1600; 
+    osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
+    gain.gain.setValueAtTime(0.04, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+    osc1.start(t); osc2.start(t); osc1.stop(t + 0.6); osc2.stop(t + 0.6);
 }
 
 /* ===== CORE FUNCTIONS ===== */
 function loadData() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            state = { ...state, ...parsed };
-        } catch(e) {}
+        try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {}
     }
     if (!state.exercises || state.exercises.length === 0) {
         state.exercises = [{ id: Date.now(), name: 'Flotări', settings: { type: 'fixed', fixedVal: 30, startDate: '2026-01-01' } }];
@@ -492,7 +473,6 @@ function updateUI(shouldTick) {
     
     const pct = target > 0 ? (Math.min(currentTotalVal, target) / target) * 100 : 0;
     fill.style.width = pct + "%";
-    
     wheel.style.transform = `rotate(${currentTotalVal * 10}deg)`;
 
     const diff = currentTotalVal - checkpointMin;
@@ -500,12 +480,8 @@ function updateUI(shouldTick) {
         incDisp.textContent = `+${diff}`; 
         incDisp.classList.add('show');
         incDisp.style.color = currentTotalVal > target ? "var(--bonus)" : "var(--primary)";
-        
         clearTimeout(incTimer);
-        incTimer = setTimeout(() => {
-            incDisp.classList.remove('show');
-        }, 5000);
-
+        incTimer = setTimeout(() => { incDisp.classList.remove('show'); }, 5000);
     } else if (!incDisp.classList.contains('evaporate')) {
         incDisp.classList.remove('show'); incDisp.textContent = "";
     }
@@ -513,7 +489,7 @@ function updateUI(shouldTick) {
     if (shouldTick) playTickSound();
 }
 
-/* ===== EXERCISE MANAGEMENT ===== */
+/* ===== LOGIC ===== */
 let listStartX = 0, listStartY = 0;
 function exListDown(e) { listStartX = e.clientX || e.touches[0].clientX; listStartY = e.clientY || e.touches[0].clientY; }
 function selectEx(id, e) {
@@ -554,7 +530,6 @@ function addNewExercisePrompt() {
 function deleteCurrentExercise() {
     if (state.exercises.length <= 1) { alert("Trebuie să ai cel puțin un exercițiu!"); return; }
     if (!confirm("Sigur ștergi acest exercițiu?")) return;
-    
     state.exercises = state.exercises.filter(e => e.id !== state.currentExId);
     state.currentExId = state.exercises[0].id;
     calculateCurrentTotal();
@@ -572,12 +547,10 @@ function renderExercisesList() {
             <div class="ex-status-dot ${ex.id === state.currentExId ? 'active' : ''}"></div>
         </div>
     `).join('');
-    
     html += `<div class="add-ex-item" onclick="addNewExercisePrompt()">+ Adaugă Exercițiu Nou</div>`;
     list.innerHTML = html;
 }
 
-/* ===== SETTINGS SAVE ===== */
 function saveSettings() {
     const ex = getCurrentEx();
     ex.name = document.getElementById('edit-ex-name').value;
@@ -588,7 +561,6 @@ function saveSettings() {
     document.getElementById('settings-panel').style.display = 'none';
 }
 
-/* ===== ACTIONS & LOGIC ===== */
 function add(n) { 
     const prevVal = currentTotalVal;
     currentTotalVal += n;
@@ -599,15 +571,8 @@ function add(n) {
     resetSessionTimer();
 }
 
-function manualSave() { 
-    manageWakeLock();
-    if (currentTotalVal > checkpointMin) { finalizeSession(); clearTimeout(timer); } 
-}
-
-function resetSessionTimer() {
-    clearTimeout(timer);
-    timer = setTimeout(finalizeSession, 5000); 
-}
+function manualSave() { manageWakeLock(); if (currentTotalVal > checkpointMin) { finalizeSession(); clearTimeout(timer); } }
+function resetSessionTimer() { clearTimeout(timer); timer = setTimeout(finalizeSession, 5000); }
 
 function finalizeSession() {
     const diff = currentTotalVal - checkpointMin;
@@ -624,9 +589,7 @@ function finalizeSession() {
         state.dailyLog[today].unshift(entry);
         checkpointMin = currentTotalVal;
         saveData();
-        
         playSaveSound(); 
-        
         incDisp.classList.add('evaporate');
         setTimeout(() => { incDisp.textContent=""; incDisp.classList.remove('show','evaporate'); }, 400);
     } else {
@@ -634,7 +597,25 @@ function finalizeSession() {
     }
 }
 
-/* ===== HISTORY & SWIPE ===== */
+/* ===== HISTORY LOGIC & ARROWS ===== */
+function getAvailableDates() {
+    const dates = Object.keys(state.dailyLog).filter(d => state.dailyLog[d].length > 0);
+    const today = new Date().toDateString();
+    if (!dates.includes(today)) dates.push(today);
+    return dates.sort((a,b) => new Date(a) - new Date(b));
+}
+
+function updateNavArrows() {
+    const dates = getAvailableDates();
+    const idx = dates.indexOf(viewDateStr);
+    
+    const left = document.getElementById('nav-left');
+    const right = document.getElementById('nav-right');
+    
+    if (idx > 0) left.classList.remove('disabled'); else left.classList.add('disabled');
+    if (idx < dates.length - 1) right.classList.remove('disabled'); else right.classList.add('disabled');
+}
+
 function renderHistoryList() {
     document.getElementById('nav-date-display').textContent = formatDate(viewDateStr);
     const list = document.getElementById("history-list");
@@ -656,6 +637,19 @@ function renderHistoryList() {
         `).join('');
     }
     initDesktopDragScroll('history-list');
+    updateNavArrows();
+}
+
+function navHistoryDay(dir) {
+    manageWakeLock();
+    const dates = getAvailableDates();
+    let idx = dates.indexOf(viewDateStr);
+    const newIdx = idx + dir;
+    
+    if (newIdx >= 0 && newIdx < dates.length) {
+        viewDateStr = dates[newIdx];
+        renderHistoryList();
+    }
 }
 
 function deleteHistoryItem(index, val, exId) {
@@ -715,16 +709,6 @@ function formatDate(dateStr) {
     const days = ['Dum', 'Lun', 'Mar', 'Mie', 'Joi', 'Vin', 'Sâm'];
     const months = ['Ian', 'Feb', 'Mar', 'Apr', 'Mai', 'Iun', 'Iul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
-}
-
-function navHistoryDay(dir) {
-    manageWakeLock();
-    const available = Object.keys(state.dailyLog).sort((a,b) => new Date(a) - new Date(b));
-    if (!available.includes(new Date().toDateString())) available.push(new Date().toDateString());
-    let idx = available.indexOf(viewDateStr);
-    if (idx === -1) idx = available.length - 1;
-    const newIdx = idx + dir;
-    if (newIdx >= 0 && newIdx < available.length) { viewDateStr = available[newIdx]; renderHistoryList(); }
 }
 
 /* ===== SETTINGS & PANELS ===== */
