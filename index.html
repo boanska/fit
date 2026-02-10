@@ -255,6 +255,8 @@
     .cal-big-cell.has-data .cal-dot { display: block; position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); }
 
     .copyright { margin-top: 15px; font-size: 10px; color: var(--text-muted); opacity: 0.4; flex-shrink: 0; font-family: monospace; letter-spacing: 0.5px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    /* Fix pentru timer mode: impinge copyright jos cand butoanele sunt ascunse */
+    .timer-mode .copyright { margin-top: auto; }
 </style>
 </head>
 <body>
