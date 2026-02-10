@@ -18,20 +18,10 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%231b1b1b'/%3E%3Ccircle cx='50' cy='50' r='40' fill='none' stroke='%2376d900' stroke-width='10'/%3E%3Ccircle cx='50' cy='50' r='15' fill='%233a3a3a'/%3E%3C/svg%3E">
 
 <style>
-    body {
-    /* Previne scroll-ul de tip "refresh" pe mobil */
-    overscroll-behavior-y: contain;
-}
+    body { overscroll-behavior-y: contain; }
 
-/* Stil pentru bara de status pe iOS */
 @media screen and (display-mode: standalone) {
-    .card {
-        height: 100vh;
-        max-height: 100vh;
-        width: 100vw;
-        max-width: none;
-        border-radius: 0;
-    }
+    .card { height: 100vh; max-height: 100vh; width: 100vw; max-width: none; border-radius: 0; }
 }
 
     :root { 
@@ -64,12 +54,11 @@
     /* --- HEADER --- */
     .top-stats-container { display: flex; justify-content: space-between; align-items: flex-start; height: 70px; margin-bottom: 20px; flex-shrink: 0; position: relative; }
     
-    .stat-box { display: flex; flex-direction: column; width: 80px; }
+    .stat-box { display: flex; flex-direction: column; width: 90px; }
     .stat-box.center { flex: 1; align-items: center; cursor: pointer; }
     .stat-box.left { align-items: flex-start; text-align: left; }
     .stat-box.right { align-items: flex-end; text-align: right; }
 
-    /* SLOT MACHINE LABEL STYLES */
     .label-mask {
         height: 12px; 
         overflow: hidden;
@@ -92,8 +81,10 @@
     }
     .label span.arrow { font-size: 8px; margin-top: 1px; }
 
-    .val-text { font-size: 32px; font-weight: 800; line-height: 1; margin-top: 5px; transition: color 0.3s ease; }
-    
+    .val-text { font-size: 32px; font-weight: 800; line-height: 1; margin-top: 5px; transition: color 0.3s ease; white-space: nowrap; }
+    /* Ajustare font size pentru timer sa incapă MM:SS */
+    .timer-mode .val-text { font-size: 26px; letter-spacing: -1px; } 
+
     .ex-title { 
         font-size: 24px; font-weight: 800; color: #fff; margin-top: 2px; 
         padding-bottom: 5px; display: flex; align-items: center; justify-content: center;
@@ -132,11 +123,36 @@
         background: radial-gradient(#3a3a3a, #1e1e1e); display: flex; align-items: center; justify-content: center; 
         box-shadow: 0 4px 15px rgba(0,0,0,0.6); 
         cursor: default; pointer-events: none;
-        transition: transform 0.1s, box-shadow 0.3s;
+        /* Tranzitie rapida pentru efectul de apasare */
+        transition: transform 0.08s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.08s ease;
     }
-    .wheel-center.can-save { cursor: pointer; pointer-events: auto; }
-    .wheel-center.can-save:active { transform: scale(0.95); box-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+    .wheel-center.can-save, .wheel-center.is-timer-btn { cursor: pointer; pointer-events: auto; }
     
+    /* Efectul de apasare - adaugat prin JS */
+    .wheel-center.pressed {
+        transform: scale(0.92) !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.5) !important;
+    }
+
+    /* Timer Controls */
+    .play-icon {
+        width: 0; height: 0; 
+        border-top: 25px solid transparent; border-bottom: 25px solid transparent;
+        border-left: 40px solid var(--primary);
+        margin-left: 10px;
+    }
+    .stop-icon {
+        width: 40px; height: 40px; background-color: var(--danger);
+        border-radius: 6px;
+    }
+    .countdown-overlay {
+        position: absolute; top:0; left:0; width:100%; height:100%;
+        background: rgba(0,0,0,0.8); z-index: 100;
+        display: none; align-items: center; justify-content: center;
+        font-size: 80px; font-weight: 900; color: var(--primary);
+        border-radius: 22px;
+    }
+
     #inc { 
         font-size: 42px; font-weight: 700; color: var(--primary); 
         line-height: 1; margin-top: -2px; 
@@ -147,7 +163,7 @@
 
     .evaporate { transform: translateY(-15px) scale(1.1); opacity: 0 !important; transition: transform 0.4s ease-out, opacity 0.4s ease-out !important; }
 
-    /* --- STATS ZONE RESTRANS --- */
+    /* --- STATS ZONE --- */
     .stats-zone { 
         cursor: pointer; padding: 15px; border-radius: 15px; 
         transition: 0.2s; flex-shrink: 0; 
@@ -155,7 +171,9 @@
     }
     .stats-zone:active { background-color: #252525; transform: scale(0.98); }
 
-    .done-val { font-size: 60px; font-weight: 800; color: #fff; line-height: 1; }
+    .done-val { font-size: 60px; font-weight: 800; color: #fff; line-height: 1; white-space: nowrap; }
+    .timer-mode .done-val { font-size: 50px; }
+
     .buttons { display: flex; gap: 12px; margin-top: auto; width: 100%; }
     .buttons button { flex: 1; padding: 20px 0; font-size: 20px; border-radius: 14px; border: none; background: #2a2a2a; color: #eee; cursor: pointer; font-weight: bold; }
 
@@ -165,84 +183,58 @@
     .scroll-list { overflow-y: auto; flex: 1; -ms-overflow-style: none; scrollbar-width: none; padding-bottom: 10px; cursor: grab; }
     .scroll-list::-webkit-scrollbar { display: none; }
     
-    .panel-hint { font-size: 10px; color: var(--text-muted); text-align: center; margin-bottom: 15px; opacity: 0.7; font-weight: 500; }
-
-    /* SWIPE ITEMS */
     .swipe-container { position: relative; height: 60px; max-height: 60px; margin-bottom: 10px; border-radius: 12px; background-color: var(--danger); overflow: hidden; transition: max-height 0.35s ease, margin 0.35s ease, opacity 0.3s ease; transform-origin: top; }
     .swipe-container.deleting { max-height: 0; margin-bottom: 0; opacity: 0; transform: scale(0.95); }
     .delete-btn { position: absolute; right: 0; top: 0; bottom: 0; width: 80px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; z-index: 1; cursor: pointer; }
     .swipe-content { position: relative; z-index: 2; background-color: #252525; width: 100%; height: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0 15px; transition: transform 0.2s ease-out; touch-action: pan-y; cursor: grab; }
     
-    /* ISTORIC STYLING */
     .hist-left { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; }
     .hist-name { font-size: 16px; font-weight: 700; color: #fff; line-height: 1.2; }
     .hist-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
     .hist-val { font-weight: 800; font-size: 20px; color: var(--primary); }
     
-    .discrete-hint { font-size: 9px; color: var(--text-muted); text-align: center; opacity: 0.3; font-weight: 400; font-style: italic; }
+    .discrete-hint { 
+        font-size: 10px; color: var(--text-muted); text-align: center; opacity: 0.8; font-weight: 500;
+        margin-top: 15px; letter-spacing: 0.5px;
+        display: flex; align-items: center; justify-content: center;
+    }
+    
     .history-header-hint { margin-bottom: 10px; }
     .main-page-hint { margin-top: 5px; }
 
-    /* EXERCISE LIST */
     .ex-list-item { background: #252525; height: 60px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; padding: 0 15px; cursor: pointer; transition: background 0.2s; }
     .ex-list-item:active { background: #333; }
     .ex-item-name { font-size: 18px; font-weight: bold; }
-    
     .ex-status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: #444; transition: background-color 0.3s; }
     .ex-status-dot.active { background-color: var(--primary); box-shadow: 0 0 5px var(--primary); }
-    
     .add-ex-item { height: 60px; border-radius: 12px; background: #222; border: 1px dashed #444; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--primary); font-weight: bold; font-size: 14px; margin-bottom: 10px; }
-    .add-ex-item:active { background: #333; }
 
     /* SETTINGS */
     .setting-group { text-align: left; margin-bottom: 25px; background: #252525; padding: 15px; border-radius: 12px; }
     .setting-group label { display: block; font-size: 12px; color: var(--primary); font-weight: bold; margin-bottom: 10px; text-transform: uppercase; }
     .custom-input { width: 100%; background: var(--input-bg); border: 1px solid #444; color: #fff; padding: 12px; border-radius: 8px; font-size: 16px; outline: none; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
-    select, input[type="number"], input[type="text"] { width: 100%; background: var(--input-bg); border: 1px solid #444; color: #fff; padding: 12px; border-radius: 8px; font-size: 16px; outline: none; }
+    select, input[type="number"], input[type="text"], input[type="time"] { width: 100%; background: var(--input-bg); border: 1px solid #444; color: #fff; padding: 12px; border-radius: 8px; font-size: 16px; outline: none; }
     
+    .time-inputs { display: flex; gap: 10px; }
+    .time-inputs div { flex: 1; }
+    .time-inputs span { font-size: 10px; color: #888; }
+
     .close-btn { background: var(--primary); color: #000; font-weight: bold; border: none; padding: 18px 25px; border-radius: 14px; width: 100%; cursor: pointer; font-size: 18px; margin-top: auto; flex-shrink: 0; }
-    
-    .delete-ex-btn { 
-        background: transparent; color: var(--danger); font-weight: bold; 
-        border: 1px solid var(--danger); padding: 10px 20px; border-radius: 10px; 
-        width: auto; cursor: pointer; font-size: 12px; 
-        margin: 10px auto; display: block; opacity: 0.7;
-    }
+    .delete-ex-btn { background: transparent; color: var(--danger); font-weight: bold; border: 1px solid var(--danger); padding: 10px 20px; border-radius: 10px; width: auto; cursor: pointer; font-size: 12px; margin: 10px auto; display: block; opacity: 0.7; }
     .delete-ex-btn:active { opacity: 1; background: rgba(255, 59, 48, 0.1); }
 
-    /* NAV & CALENDAR */
+    /* NAV & CALENDAR & MENU */
     .hist-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #252525; padding: 10px; border-radius: 12px; flex-shrink: 0; }
-    
     .nav-arrow { padding: 10px 20px; font-size: 20px; font-weight: bold; color: var(--primary); cursor: pointer; transition: opacity 0.2s, color 0.2s; }
     .nav-arrow.disabled { color: var(--text-muted); opacity: 0.3; pointer-events: none; }
-    
     .nav-date { font-size: 16px; font-weight: bold; cursor: pointer; color: #fff; }
-
-    /* ADVANCED MENU UPDATED */
     .advanced-section { margin-bottom: 10px; flex-shrink: 0; border-top: 1px solid #333; padding-top: 10px; }
     .advanced-toggle { font-size: 11px; color: var(--text-muted); cursor: pointer; padding: 2px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
-    
-    .advanced-menu { 
-        overflow: hidden; 
-        height: 0; 
-        transition: height 0.3s ease; 
-        display: flex; 
-        flex-wrap: wrap; /* Permite trecerea pe randul urmator */
-        gap: 10px; 
-        margin-top: 5px; 
-    }
-    /* Inaltime crescuta pentru a acomoda 2 randuri de butoane */
+    .advanced-menu { overflow: hidden; height: 0; transition: height 0.3s ease; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px; }
     .advanced-menu.open { height: 90px; } 
-    
-    .adv-btn { 
-        flex: 1 1 45%; /* Fiecare buton ia cam jumatate, minus gap */
-        background: #333; color: #fff; 
-        border: 1px solid #444; border-radius: 8px; 
-        font-size: 11px; cursor: pointer; font-weight: bold; padding: 0; 
-        height: 40px; /* Inaltime fixa pentru a calcula height-ul containerului */
-    }
+    .adv-btn { flex: 1 1 45%; background: #333; color: #fff; border: 1px solid #444; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: bold; padding: 0; height: 40px; }
 
-    /* Calendar Grid */
+    /* CALENDAR */
     .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .cal-nav-btn { font-size: 20px; padding: 10px; cursor: pointer; color: var(--primary); font-weight: bold; width: 40px; text-align: center; }
     .cal-title-container { display: flex; gap: 0; font-size: 18px; font-weight: bold; flex: 1; justify-content: center; overflow: hidden; }
@@ -262,21 +254,52 @@
     .cal-big-cell.current { border: 1px solid var(--primary); color: var(--primary); }
     .cal-big-cell.has-data .cal-dot { display: block; position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); }
 
-    /* COPYRIGHT FOOTER UPDATED */
-    .copyright { 
-        margin-top: 15px; font-size: 10px; color: var(--text-muted); opacity: 0.4; 
-        flex-shrink: 0; font-family: monospace; letter-spacing: 0.5px;
-        display: flex; flex-direction: column; align-items: center; gap: 2px;
-    }
+    .copyright { margin-top: 15px; font-size: 10px; color: var(--text-muted); opacity: 0.4; flex-shrink: 0; font-family: monospace; letter-spacing: 0.5px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 </style>
 </head>
 <body>
 
 <div class="card" id="main-card">
+    <div id="countdown-overlay" class="countdown-overlay">3</div>
+
     <div id="exercises-panel" class="panel" style="z-index: 70;">
         <h2 style="margin-top:0; margin-bottom:15px" data-key="chooseEx">Choose Exercise</h2>
         <div id="exercises-list" class="scroll-list"></div>
         <button class="close-btn" onclick="togglePanel('exercises-panel')" data-key="back">BACK</button>
+    </div>
+
+    <div id="manual-add-panel" class="panel" style="z-index: 90;">
+        <h2 style="margin-top:0; margin-bottom: 25px;" data-key="manualAddTitle">Manual Add</h2>
+        <div class="setting-group">
+            <label data-key="exercise">Exercise</label>
+            <select id="manual-ex-select" onchange="updateManualInputType()"></select>
+        </div>
+        <div class="setting-group">
+            <label data-key="time">Time</label>
+            <input type="time" id="manual-time">
+        </div>
+        
+        <div id="manual-group-reps" class="setting-group">
+            <label data-key="value">Value</label>
+            <input type="number" id="manual-val" placeholder="0">
+        </div>
+        
+        <div id="manual-group-duration" class="setting-group" style="display:none">
+            <label data-key="duration">Duration</label>
+            <div class="time-inputs">
+                <div>
+                    <input type="number" id="manual-min" placeholder="0">
+                    <span>Min</span>
+                </div>
+                <div>
+                    <input type="number" id="manual-sec" placeholder="0">
+                    <span>Sec</span>
+                </div>
+            </div>
+        </div>
+        
+        <button class="close-btn" onclick="saveManualEntry()" data-key="add">ADD</button>
+        <button class="delete-ex-btn" style="margin-top:10px" onclick="togglePanel('manual-add-panel')" data-key="cancel">CANCEL</button>
     </div>
 
     <div id="history-panel" class="panel">
@@ -296,7 +319,7 @@
                 <button class="adv-btn" onclick="document.getElementById('import-file').click()">⬆ Import</button>
                 
                 <button class="adv-btn" onclick="toggleLang()">Lang: <span id="lang-disp">EN</span></button>
-                <button class="adv-btn" id="new-feature-btn" style="opacity:0.5; cursor: default;">...</button>
+                <button class="adv-btn" onclick="openManualAdd()" data-key="manualAddBtn">+ Manual Add</button>
                 
                 <input type="file" id="import-file" style="display:none" onchange="importData(this)">
             </div>
@@ -327,7 +350,8 @@
             <label data-key="targetType">Target Type</label>
             <select id="target-type" onchange="uiRefreshSettings()">
                 <option value="fixed" data-key="fixedDaily">Fixed Daily Number</option>
-                <option value="incremental" data-key="incremental">Incremental (Days)</option>
+                <option value="incremental" data-key="incremental">Increases Daily</option>
+                <option value="duration" data-key="duration">Time</option>
             </select>
         </div>
         <div id="group-incremental" class="setting-group" style="display:none">
@@ -340,6 +364,19 @@
         <div id="group-fixed" class="setting-group">
             <label data-key="fixedVal">Fixed Value</label>
             <input type="number" id="fixed-val">
+        </div>
+        <div id="group-duration" class="setting-group" style="display:none">
+            <label data-key="durationTarget">Duration</label>
+            <div class="time-inputs">
+                <div>
+                    <input type="number" id="dur-min" placeholder="0">
+                    <span>Min</span>
+                </div>
+                <div>
+                    <input type="number" id="dur-sec" placeholder="0">
+                    <span>Sec</span>
+                </div>
+            </div>
         </div>
         <button class="delete-ex-btn" onclick="deleteCurrentExercise()" data-key="delEx">DELETE EXERCISE</button>
         <button class="close-btn" onclick="saveSettings()" data-key="save">SAVE</button>
@@ -376,23 +413,25 @@
         <div class="wheel" id="wheel"></div>
         <div class="wheel-center" id="wheel-center">
             <div id="inc"></div>
-        </div>
+            </div>
     </div>
 
     <div class="stats-zone" onclick="togglePanel('history-panel')">
         <div class="label" data-key="totalToday">Total Today</div>
         <div class="done-val" id="done">0</div>
-        <div class="discrete-hint main-page-hint" data-key="tapHistory">(Tap for history)</div>
+        <div class="discrete-hint main-page-hint">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+        </div>
     </div>
 
-    <div class="buttons">
+    <div class="buttons" id="manual-buttons">
         <button onclick="add(1)">+1</button>
         <button onclick="add(5)">+5</button>
         <button onclick="add(10)">+10</button>
     </div>
 
     <div class="copyright">
-        <span>&copy; BOANSKA • FitBsk • v5.0</span>
+        <span>&copy; BOANSKA • FitBsk • v5.7</span>
     </div>
 </div>
 
@@ -400,79 +439,35 @@
 /* ===== TRANSLATIONS ===== */
 const translations = {
     en: {
-        chooseEx: "Choose Exercise",
-        back: "BACK",
-        today: "Today",
-        swipeHint: "Swipe left to delete",
-        advOpt: "Advanced Options",
-        month: "Month",
-        year: "Year",
-        close: "CLOSE",
-        exSetup: "Exercise Setup",
-        exName: "Exercise Name",
-        targetType: "Target Type",
-        fixedDaily: "Fixed Daily Number",
-        incremental: "Incremental (Days)",
-        startDate: "Start Date",
-        selectDate: "Select date",
-        fixedVal: "Fixed Value",
-        delEx: "DELETE EXERCISE",
-        save: "SAVE",
-        target: "Target",
-        exercise: "Exercise",
-        remaining: "Remaining",
-        bonus: "Bonus",
-        totalToday: "Total Today",
-        tapHistory: "(Tap for history)",
-        addEx: "+ Add New Exercise",
-        delConfirm: "Are you sure you want to delete this exercise?",
-        delMsg: "You must have at least one exercise!",
-        newExPrompt: "New Exercise Name:",
-        pushups: "Pushups",
-        emptyHist: "No records found.",
-        delete: "DELETE",
-        imported: "Imported!",
-        error: "Error!",
-        overwriteWarn: "Warning, data will be overwritten!",
+        chooseEx: "Choose Exercise", back: "BACK", today: "Today", swipeHint: "Swipe left to delete",
+        advOpt: "Advanced Options", month: "Month", year: "Year", close: "CLOSE",
+        exSetup: "Exercise Setup", exName: "Exercise Name", targetType: "Target Type",
+        fixedDaily: "Fixed Daily Number", incremental: "Increases Daily", duration: "Time",
+        startDate: "Start Date", selectDate: "Select date", fixedVal: "Fixed Value", durationTarget: "Duration",
+        delEx: "DELETE EXERCISE", save: "SAVE", target: "Target", exercise: "Exercise",
+        remaining: "Remaining", bonus: "Bonus", totalToday: "Total Today", 
+        addEx: "+ Add New Exercise", delConfirm: "Are you sure you want to delete this exercise?",
+        delMsg: "You must have at least one exercise!", newExPrompt: "New Exercise Name:",
+        pushups: "Pushups", plank: "Plank", emptyHist: "No records found.", delete: "DELETE",
+        imported: "Imported!", error: "Error!", overwriteWarn: "Warning, data will be overwritten!",
+        manualAddTitle: "Manual Add", value: "Value", time: "Time", add: "ADD", cancel: "CANCEL", manualAddBtn: "+ Manual Add",
         months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
         days: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
         daysShort: ['M','T','W','T','F','S','S']
     },
     ro: {
-        chooseEx: "Alege Exercițiul",
-        back: "ÎNAPOI",
-        today: "Azi",
-        swipeHint: "Glisează stânga pentru ștergere",
-        advOpt: "Opțiuni Avansate",
-        month: "Luna",
-        year: "An",
-        close: "ÎNCHIDE",
-        exSetup: "Configurare Exercițiu",
-        exName: "Nume Exercițiu",
-        targetType: "Tip Țintă",
-        fixedDaily: "Număr Fix Zilnic",
-        incremental: "Incremental (Zile)",
-        startDate: "Data de Start",
-        selectDate: "Selectează data",
-        fixedVal: "Valoare Fixă",
-        delEx: "ȘTERGE EXERCIȚIUL",
-        save: "SALVEAZĂ",
-        target: "Țintă",
-        exercise: "Exercițiu",
-        remaining: "Rămas",
-        bonus: "Bonus",
-        totalToday: "Total Azi",
-        tapHistory: "(Apasă pentru istoric)",
-        addEx: "+ Adaugă Exercițiu Nou",
-        delConfirm: "Sigur ștergi acest exercițiu?",
-        delMsg: "Trebuie să ai cel puțin un exercițiu!",
-        newExPrompt: "Nume exercițiu nou:",
-        pushups: "Flotări",
-        emptyHist: "Nicio înregistrare.",
-        delete: "ȘTERGE",
-        imported: "Importat!",
-        error: "Eroare!",
-        overwriteWarn: "Atenție, datele vor fi suprascrise!",
+        chooseEx: "Alege Exercițiul", back: "ÎNAPOI", today: "Azi", swipeHint: "Glisează stânga pentru ștergere",
+        advOpt: "Opțiuni Avansate", month: "Luna", year: "An", close: "ÎNCHIDE",
+        exSetup: "Configurare Exercițiu", exName: "Nume Exercițiu", targetType: "Tip Țintă",
+        fixedDaily: "Număr Fix Zilnic", incremental: "Crește zilnic", duration: "Timp",
+        startDate: "Data de Start", selectDate: "Selectează data", fixedVal: "Valoare Fixă", durationTarget: "Durată",
+        delEx: "ȘTERGE EXERCIȚIUL", save: "SALVEAZĂ", target: "Țintă", exercise: "Exercițiu",
+        remaining: "Rămas", bonus: "Bonus", totalToday: "Total Azi",
+        addEx: "+ Adaugă Exercițiu Nou", delConfirm: "Sigur ștergi acest exercițiu?",
+        delMsg: "Trebuie să ai cel puțin un exercițiu!", newExPrompt: "Nume exercițiu nou:",
+        pushups: "Flotări", plank: "Plank", emptyHist: "Nicio înregistrare.", delete: "ȘTERGE",
+        imported: "Importat!", error: "Eroare!", overwriteWarn: "Atenție, datele vor fi suprascrise!",
+        manualAddTitle: "Adăugare Manuală", value: "Repetări", time: "Ora", add: "ADAUGĂ", cancel: "ANULEAZĂ", manualAddBtn: "+ Adăugare Manuală",
         months: ['Ian','Feb','Mar','Apr','Mai','Iun','Iul','Aug','Sep','Oct','Nov','Dec'],
         days: ['Dum','Lun','Mar','Mie','Joi','Vin','Sâm'],
         daysShort: ['L','M','M','J','V','S','D']
@@ -480,10 +475,10 @@ const translations = {
 };
 
 /* ===== DATA STATE ===== */
-const STORAGE_KEY = 'fitbsk_v4_4';
+const STORAGE_KEY = 'fitbsk_v5_7';
 let state = {
-    lang: 'en', // Default English
-    exercises: [{ id: 1, name: 'Pushups', settings: { type: 'fixed', fixedVal: 30, startDate: '2026-01-01' } }],
+    lang: 'en',
+    exercises: [], // Init in loadData
     currentExId: 1,
     dailyLog: {}, 
     lastUpdate: new Date().toDateString()
@@ -495,60 +490,49 @@ let timer = null;
 let incTimer = null; 
 let targetMetFlag = false;
 
-/* ===== I18N LOGIC ===== */
-function t(key) {
-    return translations[state.lang][key] || key;
-}
+// Timer specific
+let timerInterval = null;
+let isTimerRunning = false;
+let sessionStartTime = 0;
 
+/* ===== I18N LOGIC ===== */
+function t(key) { return translations[state.lang][key] || key; }
 function applyLanguage() {
-    // Update static elements
-    document.querySelectorAll('[data-key]').forEach(el => {
-        el.innerText = t(el.getAttribute('data-key'));
-    });
-    // Update dynamic button text
+    document.querySelectorAll('[data-key]').forEach(el => { el.innerText = t(el.getAttribute('data-key')); });
     document.getElementById('lang-disp').textContent = state.lang.toUpperCase();
-    
-    // Refresh lists and UI that contain text
     updateUI(false);
     renderExercisesList();
     if(document.getElementById('history-panel').style.display === 'flex') renderHistoryList();
 }
-
 function toggleLang() {
     state.lang = state.lang === 'en' ? 'ro' : 'en';
-    saveData();
-    applyLanguage();
+    saveData(); applyLanguage();
 }
 
-/* ===== WAKE LOCK + AUDIO INIT ===== */
+/* ===== AUDIO & WAKE LOCK ===== */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let wakeLock = null;
-let wakeLockTimer = null;
+let wakeLock = null; let wakeLockTimer = null;
 
 async function manageWakeLock() {
-    if (!wakeLock && 'wakeLock' in navigator) {
-        try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
-    }
+    if (!wakeLock && 'wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} }
     clearTimeout(wakeLockTimer);
-    wakeLockTimer = setTimeout(() => {
-        if (wakeLock) { wakeLock.release().then(() => { wakeLock = null; }); }
-    }, 5 * 60 * 1000); 
+    if (!isTimerRunning) {
+        wakeLockTimer = setTimeout(() => { if (wakeLock) { wakeLock.release().then(() => { wakeLock = null; }); } }, 2 * 60 * 1000); 
+    }
 }
 
 function unlockAudioAndWakeLock() {
     manageWakeLock();
     if (audioCtx.state === 'suspended') {
         audioCtx.resume().then(() => {
-            const buffer = audioCtx.createBuffer(1, 1, 22050);
-            const source = audioCtx.createBufferSource();
-            source.buffer = buffer; source.connect(audioCtx.destination); source.start(0);
+            const b = audioCtx.createBuffer(1, 1, 22050); const s = audioCtx.createBufferSource();
+            s.buffer = b; s.connect(audioCtx.destination); s.start(0);
         });
     }
 }
 
 document.addEventListener('click', unlockAudioAndWakeLock);
 document.addEventListener('touchstart', unlockAudioAndWakeLock);
-document.addEventListener('keydown', unlockAudioAndWakeLock);
 
 function playTickSound() {
     if(audioCtx.state === "suspended") audioCtx.resume();
@@ -557,44 +541,39 @@ function playTickSound() {
     const s=audioCtx.createBufferSource(),g=audioCtx.createGain(); 
     g.gain.value=0.08; s.buffer=b; s.connect(g); g.connect(audioCtx.destination); s.start(); 
 }
-
 function playBellSound() {
     if(audioCtx.state === "suspended") audioCtx.resume();
-    const t = audioCtx.currentTime;
-    const osc1 = audioCtx.createOscillator(); const osc2 = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-    osc1.frequency.value = 3375; osc2.frequency.value = 4500; 
-    osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
-    gain.gain.setValueAtTime(0.1, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
-    osc1.start(t); osc2.start(t); osc1.stop(t + 1.2); osc2.stop(t + 1.2);
+    const t = audioCtx.currentTime; const o1 = audioCtx.createOscillator(); const o2 = audioCtx.createOscillator(); const g = audioCtx.createGain();
+    o1.frequency.value = 3375; o2.frequency.value = 4500; 
+    o1.connect(g); o2.connect(g); g.connect(audioCtx.destination);
+    g.gain.setValueAtTime(0.1, t); g.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+    o1.start(t); o2.start(t); o1.stop(t + 1.2); o2.stop(t + 1.2);
 }
-
 function playSaveSound() {
     if(audioCtx.state === "suspended") audioCtx.resume();
-    const t = audioCtx.currentTime;
-    const osc1 = audioCtx.createOscillator(); const osc2 = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-    osc1.frequency.value = 800; osc2.frequency.value = 1600; 
-    osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
-    gain.gain.setValueAtTime(0.04, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-    osc1.start(t); osc2.start(t); osc1.stop(t + 0.6); osc2.stop(t + 0.6);
+    const t = audioCtx.currentTime; const o1 = audioCtx.createOscillator(); const o2 = audioCtx.createOscillator(); const g = audioCtx.createGain();
+    o1.frequency.value = 800; o2.frequency.value = 1600; 
+    o1.connect(g); o2.connect(g); g.connect(audioCtx.destination);
+    g.gain.setValueAtTime(0.04, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+    o1.start(t); o2.start(t); o1.stop(t + 0.6); o2.stop(t + 0.6);
 }
 
 /* ===== CORE FUNCTIONS ===== */
 function loadData() {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-        try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {}
-    }
-    // Backward compatibility for lang
+    if (saved) { try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {} }
     if (!state.lang) state.lang = 'en';
-
+    
+    // Default Exercises for new users
     if (!state.exercises || state.exercises.length === 0) {
-        state.exercises = [{ id: Date.now(), name: t('pushups'), settings: { type: 'fixed', fixedVal: 30, startDate: '2026-01-01' } }];
-        state.currentExId = state.exercises[0].id;
+        state.exercises = [
+            { id: 1, name: t('pushups'), settings: { type: 'incremental', startDate: '2026-01-01' } },
+            { id: 2, name: t('plank'), settings: { type: 'duration', durationVal: 60 } }
+        ];
+        state.currentExId = 1;
     }
-    calculateCurrentTotal();
-    applyLanguage(); // Apply saved language
+    calculateCurrentTotal(); applyLanguage();
 }
-
 function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
 function calculateCurrentTotal() {
@@ -608,8 +587,8 @@ function calculateCurrentTotal() {
 function getCurrentEx() { return state.exercises.find(e => e.id === state.currentExId) || state.exercises[0]; }
 
 function calculateTarget() {
-    const ex = getCurrentEx();
-    const s = ex.settings;
+    const ex = getCurrentEx(); const s = ex.settings;
+    if (s.type === 'duration') return (parseInt(s.durationVal || 60)); // stored in seconds
     if (s.type === 'fixed') return parseInt(s.fixedVal);
     const start = new Date(s.startDate); start.setHours(0,0,0,0);
     const today = new Date(); today.setHours(0,0,0,0);
@@ -617,77 +596,196 @@ function calculateTarget() {
     return Math.max(1, diffDays + 1);
 }
 
+function formatTime(s) {
+    const m = Math.floor(s / 60); const sc = s % 60;
+    return `${m}:${sc < 10 ? '0'+sc : sc}`;
+}
+
+/* ===== MANUAL ADD LOGIC ===== */
+function openManualAdd() {
+    manageWakeLock();
+    // Populate dropdown
+    const select = document.getElementById('manual-ex-select');
+    select.innerHTML = state.exercises.map(ex => `<option value="${ex.id}">${ex.name}</option>`).join('');
+    select.value = state.currentExId; // Default to current
+    
+    // Set default time to now
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    document.getElementById('manual-time').value = timeStr;
+    
+    // Clear values
+    document.getElementById('manual-val').value = '';
+    document.getElementById('manual-min').value = '';
+    document.getElementById('manual-sec').value = '';
+    
+    updateManualInputType();
+    togglePanel('manual-add-panel');
+}
+
+function updateManualInputType() {
+    const exId = parseInt(document.getElementById('manual-ex-select').value);
+    const ex = state.exercises.find(e => e.id === exId);
+    
+    if (ex.settings.type === 'duration') {
+        document.getElementById('manual-group-reps').style.display = 'none';
+        document.getElementById('manual-group-duration').style.display = 'block';
+    } else {
+        document.getElementById('manual-group-reps').style.display = 'block';
+        document.getElementById('manual-group-duration').style.display = 'none';
+    }
+}
+
+function saveManualEntry() {
+    const exId = parseInt(document.getElementById('manual-ex-select').value);
+    const ex = state.exercises.find(e => e.id === exId);
+    const timeVal = document.getElementById('manual-time').value;
+    
+    let val = 0;
+    if (ex.settings.type === 'duration') {
+        const m = parseInt(document.getElementById('manual-min').value) || 0;
+        const s = parseInt(document.getElementById('manual-sec').value) || 0;
+        val = (m * 60) + s;
+    } else {
+        val = parseInt(document.getElementById('manual-val').value) || 0;
+    }
+    
+    if (val <= 0) return; // Don't add empty entries
+
+    const entry = {
+        id: Date.now(),
+        time: timeVal,
+        val: val,
+        exId: exId,
+        exName: ex.name,
+        isDuration: ex.settings.type === 'duration'
+    };
+
+    if (!state.dailyLog[viewDateStr]) state.dailyLog[viewDateStr] = [];
+    state.dailyLog[viewDateStr].unshift(entry); // Add to top
+    
+    // Update total if adding for TODAY and CURRENT EXERCISE
+    if (viewDateStr === new Date().toDateString() && exId === state.currentExId) {
+        currentTotalVal += val;
+        checkpointMin = currentTotalVal; // Assume manual entry is solid
+    }
+
+    saveData();
+    playSaveSound();
+    togglePanel('manual-add-panel'); // Close panel
+    renderHistoryList(); // Refresh history
+    updateUI(false); // Refresh main UI
+}
+
+/* ===== TIMER LOGIC ===== */
+function toggleTimer() {
+    if (isTimerRunning) stopTimer(); else startCountdown();
+}
+function startCountdown() {
+    manageWakeLock();
+    const overlay = document.getElementById('countdown-overlay');
+    overlay.style.display = "flex";
+    let count = 3; overlay.textContent = count; playTickSound();
+    const int = setInterval(() => {
+        count--;
+        if (count > 0) { overlay.textContent = count; playTickSound(); } 
+        else { clearInterval(int); overlay.style.display = "none"; startTimer(); }
+    }, 1000);
+}
+function startTimer() {
+    isTimerRunning = true; manageWakeLock(); playSaveSound();
+    document.getElementById('wheel-center').classList.add('active-timer'); updateUI(false);
+    timerInterval = setInterval(() => { currentTotalVal++; updateUI(false); }, 1000);
+}
+function stopTimer() {
+    isTimerRunning = false; clearInterval(timerInterval); playSaveSound();
+    document.getElementById('wheel-center').classList.remove('active-timer');
+    finalizeSession(true); manageWakeLock();
+}
+
 /* ===== UI UPDATES ===== */
 const slider = document.getElementById("slider"), progWrap = document.getElementById("prog-wrap"), fill = document.getElementById("fill");
 const wheel = document.getElementById("wheel"), incDisp = document.getElementById("inc");
 const headerCont = document.getElementsByClassName("top-stats-container")[0];
-const sliderContainer = document.querySelector('.slider-container');
 const wheelCenter = document.getElementById('wheel-center');
 
-wheelCenter.addEventListener('click', () => {
-    if (incDisp.classList.contains('show')) {
-        manualSave();
-    }
-});
+wheelCenter.addEventListener('mousedown', btnDown);
+wheelCenter.addEventListener('touchstart', btnDown, {passive: false});
+window.addEventListener('mouseup', btnUp);
+window.addEventListener('touchend', btnUp);
+
+function btnDown(e) {
+    if(e.cancelable) e.preventDefault();
+    wheelCenter.classList.add('pressed'); manageWakeLock();
+}
+function btnUp(e) {
+    if(!wheelCenter.classList.contains('pressed')) return;
+    wheelCenter.classList.remove('pressed');
+    const ex = getCurrentEx();
+    if (ex.settings.type === 'duration') toggleTimer();
+    else { const curInc = document.getElementById('inc'); if (curInc && curInc.classList.contains('show')) manualSave(); }
+}
 
 function updateUI(shouldTick) {
     const target = calculateTarget();
     const ex = getCurrentEx();
-    
-    document.getElementById('target-val').textContent = target;
+    const isDuration = ex.settings.type === 'duration';
+    if(isDuration) document.body.classList.add('timer-mode'); else document.body.classList.remove('timer-mode');
+
+    document.getElementById('target-val').textContent = isDuration ? formatTime(target) : target;
     document.getElementById('ex-name-disp').textContent = ex.name;
-    
+    document.getElementById('manual-buttons').style.display = isDuration ? 'none' : 'flex';
+    document.getElementById('slider').style.display = isDuration ? 'none' : 'block';
+
     const remValDiv = document.getElementById('rem-val');
     const labelReel = document.getElementById('rem-label-reel');
-    
     const isBonus = currentTotalVal >= target;
 
     if (isBonus && !targetMetFlag) {
-        playBellSound();
+        if(!isTimerRunning) playBellSound();
+        if(isTimerRunning && currentTotalVal === target) playBellSound();
         targetMetFlag = true;
-    } else if (currentTotalVal < target) {
-        targetMetFlag = false;
-    }
+    } else if (currentTotalVal < target) targetMetFlag = false;
 
     if (isBonus) {
         labelReel.style.transform = "translateY(-12px)";
-        remValDiv.textContent = currentTotalVal - target;
+        const diff = currentTotalVal - target;
+        remValDiv.textContent = isDuration ? `+ ${formatTime(diff)}` : diff;
         remValDiv.className = "val-text bonus-text";
         headerCont.classList.remove('active-progress'); headerCont.classList.add('active-bonus');
         progWrap.classList.add('bonus-mode');
-        sliderContainer.classList.add('bonus-mode');
     } else {
         labelReel.style.transform = "translateY(0)";
-        remValDiv.textContent = Math.max(0, target - currentTotalVal);
+        const diff = Math.max(0, target - currentTotalVal);
+        remValDiv.textContent = isDuration ? formatTime(diff) : diff;
         remValDiv.className = "val-text rem-text";
         headerCont.classList.add('active-progress'); headerCont.classList.remove('active-bonus');
         progWrap.classList.remove('bonus-mode');
-        sliderContainer.classList.remove('bonus-mode');
     }
 
-    document.getElementById('done').textContent = currentTotalVal;
+    document.getElementById('done').textContent = isDuration ? formatTime(currentTotalVal) : currentTotalVal;
     slider.max = target; slider.value = Math.min(currentTotalVal, target);
-    
     const pct = target > 0 ? (Math.min(currentTotalVal, target) / target) * 100 : 0;
     fill.style.width = pct + "%";
     wheel.style.transform = `rotate(${currentTotalVal * 10}deg)`;
 
-    const diff = currentTotalVal - checkpointMin;
-    if (diff > 0) {
-        incDisp.textContent = `+${diff}`; 
-        incDisp.classList.add('show');
-        incDisp.style.color = isBonus ? "var(--bonus)" : "var(--primary)";
-        wheelCenter.classList.add('can-save');
-        clearTimeout(incTimer);
-        incTimer = setTimeout(() => { 
-            incDisp.classList.remove('show'); 
-            wheelCenter.classList.remove('can-save');
-        }, 5000);
-    } else if (!incDisp.classList.contains('evaporate')) {
-        incDisp.classList.remove('show'); incDisp.textContent = "";
-        wheelCenter.classList.remove('can-save');
+    if (isDuration) {
+        wheelCenter.classList.add('is-timer-btn'); wheelCenter.classList.remove('can-save');
+        wheelCenter.innerHTML = isTimerRunning ? `<div class="stop-icon"></div>` : `<div class="play-icon"></div>`;
+    } else {
+        wheelCenter.classList.remove('is-timer-btn'); wheelCenter.innerHTML = `<div id="inc"></div>`;
+        const dispEl = document.getElementById('inc');
+        const diff = currentTotalVal - checkpointMin;
+        if (diff > 0) {
+            dispEl.textContent = `+${diff}`; dispEl.classList.add('show');
+            dispEl.style.color = isBonus ? "var(--bonus)" : "var(--primary)";
+            wheelCenter.classList.add('can-save');
+            clearTimeout(incTimer);
+            incTimer = setTimeout(() => { dispEl.classList.remove('show'); wheelCenter.classList.remove('can-save'); }, 5000);
+        } else if (!dispEl.classList.contains('evaporate')) {
+            dispEl.classList.remove('show'); dispEl.textContent = ""; wheelCenter.classList.remove('can-save');
+        }
     }
-
     if (shouldTick) playTickSound();
 }
 
@@ -697,50 +795,29 @@ function exListDown(e) { listStartX = e.clientX || e.touches[0].clientX; listSta
 function selectEx(id, e) {
     let endX = e.clientX || e.changedTouches[0].clientX;
     let endY = e.clientY || e.changedTouches[0].clientY;
-    if (Math.abs(endX - listStartX) < 10 && Math.abs(endY - listStartY) < 10) {
-        switchExercise(id);
-    }
+    if (Math.abs(endX - listStartX) < 10 && Math.abs(endY - listStartY) < 10) switchExercise(id);
 }
-
 function switchExercise(id) {
-    state.currentExId = id;
-    calculateCurrentTotal();
-    targetMetFlag = (currentTotalVal >= calculateTarget());
-    saveData();
-    updateUI(false);
-    togglePanel('exercises-panel');
+    if(isTimerRunning) stopTimer();
+    state.currentExId = id; calculateCurrentTotal(); targetMetFlag = (currentTotalVal >= calculateTarget());
+    saveData(); updateUI(false); togglePanel('exercises-panel');
 }
-
 function addNewExercisePrompt() {
     const name = prompt(t('newExPrompt'));
     if (name) {
-        const newEx = {
-            id: Date.now(),
-            name: name,
-            settings: { type: 'fixed', fixedVal: 30, startDate: new Date().toISOString().split('T')[0] }
-        };
-        state.exercises.push(newEx);
-        state.currentExId = newEx.id;
-        calculateCurrentTotal();
-        targetMetFlag = false;
-        saveData();
-        renderExercisesList();
-        updateUI(false);
+        const newEx = { id: Date.now(), name: name, settings: { type: 'fixed', fixedVal: 30, startDate: new Date().toISOString().split('T')[0] } };
+        state.exercises.push(newEx); state.currentExId = newEx.id; calculateCurrentTotal(); targetMetFlag = false;
+        saveData(); renderExercisesList(); updateUI(false);
     }
 }
-
 function deleteCurrentExercise() {
     if (state.exercises.length <= 1) { alert(t('delMsg')); return; }
     if (!confirm(t('delConfirm'))) return;
+    if(isTimerRunning) stopTimer();
     state.exercises = state.exercises.filter(e => e.id !== state.currentExId);
-    state.currentExId = state.exercises[0].id;
-    calculateCurrentTotal();
-    targetMetFlag = (currentTotalVal >= calculateTarget());
-    saveData();
-    document.getElementById('settings-panel').style.display = 'none';
-    updateUI(false);
+    state.currentExId = state.exercises[0].id; calculateCurrentTotal(); targetMetFlag = (currentTotalVal >= calculateTarget());
+    saveData(); document.getElementById('settings-panel').style.display = 'none'; updateUI(false);
 }
-
 function renderExercisesList() {
     const list = document.getElementById('exercises-list');
     let html = state.exercises.map(ex => `
@@ -752,302 +829,141 @@ function renderExercisesList() {
     html += `<div class="add-ex-item" onclick="addNewExercisePrompt()">${t('addEx')}</div>`;
     list.innerHTML = html;
 }
-
 function saveSettings() {
     const ex = getCurrentEx();
     ex.name = document.getElementById('edit-ex-name').value;
-    ex.settings.type = document.getElementById('target-type').value;
-    ex.settings.fixedVal = document.getElementById('fixed-val').value;
-    saveData();
-    updateUI(false);
-    document.getElementById('settings-panel').style.display = 'none';
+    const type = document.getElementById('target-type').value;
+    ex.settings.type = type;
+    if (type === 'fixed') ex.settings.fixedVal = document.getElementById('fixed-val').value;
+    if (type === 'duration') {
+        const m = parseInt(document.getElementById('dur-min').value) || 0;
+        const s = parseInt(document.getElementById('dur-sec').value) || 0;
+        ex.settings.durationVal = (m * 60) + s;
+    }
+    saveData(); calculateCurrentTotal(); updateUI(false); document.getElementById('settings-panel').style.display = 'none';
 }
-
 function add(n) { 
-    const prevVal = currentTotalVal;
-    currentTotalVal += n;
+    if(getCurrentEx().settings.type === 'duration') return;
+    const prevVal = currentTotalVal; currentTotalVal += n;
     if (currentTotalVal < checkpointMin) currentTotalVal = checkpointMin;
-    const hasChanged = currentTotalVal !== prevVal;
-    manageWakeLock();
-    updateUI(hasChanged); 
-    resetSessionTimer();
+    const hasChanged = currentTotalVal !== prevVal; manageWakeLock(); updateUI(hasChanged); resetSessionTimer();
 }
-
 function manualSave() { manageWakeLock(); if (currentTotalVal > checkpointMin) { finalizeSession(); clearTimeout(timer); } }
 function resetSessionTimer() { clearTimeout(timer); timer = setTimeout(finalizeSession, 5000); }
-
-function finalizeSession() {
+function finalizeSession(isTimerSave = false) {
     const diff = currentTotalVal - checkpointMin;
     if (diff > 0) {
         const today = new Date().toDateString();
+        const ex = getCurrentEx();
         const entry = {
             id: Date.now(),
             time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
             val: diff,
             exId: state.currentExId,
-            exName: getCurrentEx().name
+            exName: ex.name,
+            isDuration: ex.settings.type === 'duration'
         };
         if (!state.dailyLog[today]) state.dailyLog[today] = [];
         state.dailyLog[today].unshift(entry);
-        checkpointMin = currentTotalVal;
-        saveData();
-        playSaveSound(); 
-        incDisp.classList.add('evaporate');
-        wheelCenter.classList.remove('can-save');
-        setTimeout(() => { incDisp.textContent=""; incDisp.classList.remove('show','evaporate'); }, 400);
+        checkpointMin = currentTotalVal; saveData();
+        if (!isTimerSave) {
+            playSaveSound(); 
+            const dispEl = document.getElementById('inc');
+            if(dispEl) { dispEl.classList.add('evaporate'); wheelCenter.classList.remove('can-save'); setTimeout(() => { dispEl.textContent=""; dispEl.classList.remove('show','evaporate'); }, 400); }
+        } else { updateUI(false); }
     } else {
-        incDisp.classList.remove('show');
-        wheelCenter.classList.remove('can-save');
+        const dispEl = document.getElementById('inc'); if(dispEl) dispEl.classList.remove('show'); wheelCenter.classList.remove('can-save');
     }
 }
 
-/* ===== HISTORY LOGIC & ARROWS ===== */
+/* ===== HISTORY & SWIPE ===== */
 function getAvailableDates() {
     const dates = Object.keys(state.dailyLog).filter(d => state.dailyLog[d].length > 0);
     const today = new Date().toDateString();
     if (!dates.includes(today)) dates.push(today);
     return dates.sort((a,b) => new Date(a) - new Date(b));
 }
-
 function updateNavArrows() {
     const dates = getAvailableDates();
     const idx = dates.indexOf(viewDateStr);
-    
-    const left = document.getElementById('nav-left');
-    const right = document.getElementById('nav-right');
-    
+    const left = document.getElementById('nav-left'); const right = document.getElementById('nav-right');
     if (idx > 0) left.classList.remove('disabled'); else left.classList.add('disabled');
     if (idx < dates.length - 1) right.classList.remove('disabled'); else right.classList.add('disabled');
 }
-
 function renderHistoryList() {
     document.getElementById('nav-date-display').textContent = formatDate(viewDateStr);
     const list = document.getElementById("history-list");
     const items = state.dailyLog[viewDateStr] || [];
-    
     if (items.length === 0) list.innerHTML = `<div style="padding:40px;opacity:0.3;text-align:center">${t('emptyHist')}</div>`;
     else {
-        list.innerHTML = items.map((item, index) => `
-            <div class="swipe-container" id="hist-${index}">
-                <div class="delete-btn" onclick="deleteHistoryItem(${index}, ${item.val}, ${item.exId})">${t('delete')}</div>
-                <div class="swipe-content" onpointerdown="swipeStart(event)" onpointermove="swipeMove(event)" onpointerup="swipeEnd(event)" onpointerleave="swipeEnd(event)">
-                    <div class="hist-left">
-                        <span class="hist-name">${item.exName}</span>
-                        <span class="hist-time">${item.time}</span>
-                    </div>
-                    <strong class="hist-val">+${item.val}</strong>
-                </div>
-            </div>
-        `).join('');
+        list.innerHTML = items.map((item, index) => {
+            const displayVal = item.isDuration ? formatTime(item.val) : item.val;
+            return `<div class="swipe-container" id="hist-${index}"><div class="delete-btn" onclick="deleteHistoryItem(${index}, ${item.val}, ${item.exId})">${t('delete')}</div><div class="swipe-content" onpointerdown="swipeStart(event)" onpointermove="swipeMove(event)" onpointerup="swipeEnd(event)" onpointerleave="swipeEnd(event)"><div class="hist-left"><span class="hist-name">${item.exName}</span><span class="hist-time">${item.time}</span></div><strong class="hist-val">+${displayVal}</strong></div></div>`;
+        }).join('');
     }
-    initDesktopDragScroll('history-list');
-    updateNavArrows();
+    initDesktopDragScroll('history-list'); updateNavArrows();
 }
-
 function navHistoryDay(dir) {
     manageWakeLock();
-    const dates = getAvailableDates();
-    let idx = dates.indexOf(viewDateStr);
-    const newIdx = idx + dir;
-    
-    if (newIdx >= 0 && newIdx < dates.length) {
-        viewDateStr = dates[newIdx];
-        renderHistoryList();
-    }
+    const dates = getAvailableDates(); let idx = dates.indexOf(viewDateStr); const newIdx = idx + dir;
+    if (newIdx >= 0 && newIdx < dates.length) { viewDateStr = dates[newIdx]; renderHistoryList(); }
 }
-
 function deleteHistoryItem(index, val, exId) {
-    const el = document.getElementById(`hist-${index}`);
-    el.classList.add('deleting'); activeSwipeEl = null;
-    manageWakeLock();
+    const el = document.getElementById(`hist-${index}`); el.classList.add('deleting'); activeSwipeEl = null; manageWakeLock();
     if (viewDateStr === new Date().toDateString() && exId === state.currentExId) {
-        currentTotalVal = Math.max(0, currentTotalVal - val);
-        checkpointMin = Math.max(0, checkpointMin - val);
-        updateUI(false);
+        currentTotalVal = Math.max(0, currentTotalVal - val); checkpointMin = Math.max(0, checkpointMin - val); updateUI(false);
     }
-    setTimeout(() => {
-        state.dailyLog[viewDateStr].splice(index, 1);
-        saveData();
-        renderHistoryList();
-    }, 350);
+    setTimeout(() => { state.dailyLog[viewDateStr].splice(index, 1); saveData(); renderHistoryList(); }, 350);
 }
-
-/* ===== SWIPE LOGIC ===== */
 let startX=0, startY=0, isSwipeAction=false, pointerDown=false, activeSwipeEl=null, initialTranslate=0;
+function swipeStart(e){ if(e.pointerType==='mouse' && e.button!==0)return; if(activeSwipeEl && activeSwipeEl!==e.currentTarget){ activeSwipeEl.style.transform='translateX(0)'; activeSwipeEl=null; } startX=e.clientX; startY=e.clientY; isSwipeAction=false; pointerDown=true; manageWakeLock(); e.currentTarget.style.transition='none'; e.currentTarget.setPointerCapture(e.pointerId); const m = new DOMMatrix(window.getComputedStyle(e.currentTarget).transform); initialTranslate=m.m41; }
+function swipeMove(e){ if(!pointerDown)return; const dx=e.clientX-startX, dy=e.clientY-startY; if(!isSwipeAction){ if(Math.abs(dy)>Math.abs(dx))return; if(Math.abs(dx)>5)isSwipeAction=true; } if(isSwipeAction){ e.preventDefault(); let newT=initialTranslate+dx; newT=Math.max(-80,Math.min(0,newT)); e.currentTarget.style.transform=`translateX(${newT}px)`; } }
+function swipeEnd(e){ pointerDown=false; isSwipeAction=false; try{e.currentTarget.releasePointerCapture(e.pointerId);}catch(e){} e.currentTarget.style.transition='transform 0.2s ease-out'; const m = new DOMMatrix(window.getComputedStyle(e.currentTarget).transform); if(m.m41 < -40){ e.currentTarget.style.transform='translateX(-80px)'; activeSwipeEl=e.currentTarget; } else{ e.currentTarget.style.transform='translateX(0)'; if(activeSwipeEl===e.currentTarget)activeSwipeEl=null; } }
+function initDesktopDragScroll(id) { const list = document.getElementById(id); let isDown=false, sY, sT; if(!list) return; list.onmousedown=(e)=>{if(isSwipeAction)return;isDown=true;sY=e.pageY-list.offsetTop;sT=list.scrollTop;list.style.cursor='grabbing';manageWakeLock();}; window.addEventListener('mouseup', ()=>{isDown=false;if(list)list.style.cursor='grab';}); window.addEventListener('mousemove',(e)=>{if(!isDown||isSwipeAction)return;e.preventDefault();const y=e.pageY-list.offsetTop;const walk=(y-sY);list.scrollTop=sT-walk;}); }
 
-function swipeStart(e){ 
-    if(e.pointerType==='mouse' && e.button!==0)return;
-    if(activeSwipeEl && activeSwipeEl!==e.currentTarget){ activeSwipeEl.style.transform='translateX(0)'; activeSwipeEl=null; }
-    startX=e.clientX; startY=e.clientY; isSwipeAction=false; pointerDown=true;
-    manageWakeLock();
-    e.currentTarget.style.transition='none'; e.currentTarget.setPointerCapture(e.pointerId);
-    const m = new DOMMatrix(window.getComputedStyle(e.currentTarget).transform); initialTranslate=m.m41;
-}
-function swipeMove(e){ 
-    if(!pointerDown)return; 
-    const dx=e.clientX-startX, dy=e.clientY-startY;
-    if(!isSwipeAction){ if(Math.abs(dy)>Math.abs(dx))return; if(Math.abs(dx)>5)isSwipeAction=true; }
-    if(isSwipeAction){ e.preventDefault(); let newT=initialTranslate+dx; newT=Math.max(-80,Math.min(0,newT)); e.currentTarget.style.transform=`translateX(${newT}px)`; }
-}
-function swipeEnd(e){ 
-    pointerDown=false; isSwipeAction=false; try{e.currentTarget.releasePointerCapture(e.pointerId);}catch(e){}
-    e.currentTarget.style.transition='transform 0.2s ease-out';
-    const m = new DOMMatrix(window.getComputedStyle(e.currentTarget).transform);
-    if(m.m41 < -40){ e.currentTarget.style.transform='translateX(-80px)'; activeSwipeEl=e.currentTarget; }
-    else{ e.currentTarget.style.transform='translateX(0)'; if(activeSwipeEl===e.currentTarget)activeSwipeEl=null; }
-}
-
-function initDesktopDragScroll(id) {
-    const list = document.getElementById(id);
-    let isDown=false, sY, sT;
-    list.onmousedown=(e)=>{if(isSwipeAction)return;isDown=true;sY=e.pageY-list.offsetTop;sT=list.scrollTop;list.style.cursor='grabbing';manageWakeLock();};
-    window.addEventListener('mouseup', ()=>{isDown=false;if(list)list.style.cursor='grab';});
-    window.addEventListener('mousemove',(e)=>{if(!isDown||isSwipeAction)return;e.preventDefault();const y=e.pageY-list.offsetTop;const walk=(y-sY);list.scrollTop=sT-walk;});
-}
-
-/* ===== NAV & CALENDAR ===== */
+/* ===== OTHER UI & CALENDAR ===== */
 function formatDate(dateStr) {
-    const d = new Date(dateStr); d.setHours(0,0,0,0);
-    const today = new Date(); today.setHours(0,0,0,0);
+    const d = new Date(dateStr); d.setHours(0,0,0,0); const today = new Date(); today.setHours(0,0,0,0);
     if (d.getTime() === today.getTime()) return t('today');
-    
-    // Get translated day/month arrays
-    const days = translations[state.lang].days;
-    const months = translations[state.lang].months;
-    
+    const days = translations[state.lang].days; const months = translations[state.lang].months;
     return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
 }
-
-/* ===== SETTINGS & PANELS ===== */
 function togglePanel(id) {
-    manageWakeLock();
-    const p = document.getElementById(id);
-    const isOpen = p.style.display === "flex";
-    p.style.display = isOpen ? 'none' : 'flex';
-    
+    manageWakeLock(); const p = document.getElementById(id); const isOpen = p.style.display === "flex"; p.style.display = isOpen ? 'none' : 'flex';
     if (!isOpen) {
         if(id==='settings-panel') {
-            const ex = getCurrentEx();
-            document.getElementById('edit-ex-name').value = ex.name;
-            document.getElementById('target-type').value = ex.settings.type;
-            document.getElementById('setting-start-date-display').textContent = formatDate(ex.settings.startDate);
-            document.getElementById('fixed-val').value = ex.settings.fixedVal;
+            const ex = getCurrentEx(); document.getElementById('edit-ex-name').value = ex.name; document.getElementById('target-type').value = ex.settings.type;
+            if(ex.settings.type === 'duration') { const s = ex.settings.durationVal || 60; document.getElementById('dur-min').value = Math.floor(s/60); document.getElementById('dur-sec').value = s%60; } 
+            else { document.getElementById('fixed-val').value = ex.settings.fixedVal; }
+            if(ex.settings.startDate) document.getElementById('setting-start-date-display').textContent = formatDate(ex.settings.startDate);
             uiRefreshSettings();
-        } else if (id==='history-panel') {
-            viewDateStr = new Date().toDateString(); renderHistoryList();
-        } else if (id==='exercises-panel') {
-            renderExercisesList();
-        }
+        } else if (id==='history-panel') { viewDateStr = new Date().toDateString(); renderHistoryList(); } 
+        else if (id==='exercises-panel') { renderExercisesList(); }
     }
 }
-
-function uiRefreshSettings(){ document.getElementById('group-incremental').style.display=document.getElementById('target-type').value==='incremental'?'block':'none'; document.getElementById('group-fixed').style.display=document.getElementById('target-type').value==='fixed'?'block':'none'; }
-
-/* ===== CALENDAR (Compact) ===== */
-function openCalendar(ctx) {
-    calendarContext = ctx;
-    calViewDate = new Date(ctx==='history'?viewDateStr:getCurrentEx().settings.startDate);
-    setCalendarView('days');
-    document.getElementById('calendar-panel').style.display='flex';
-}
+function uiRefreshSettings(){ const t = document.getElementById('target-type').value; document.getElementById('group-incremental').style.display= t==='incremental'?'block':'none'; document.getElementById('group-fixed').style.display= t==='fixed'?'block':'none'; document.getElementById('group-duration').style.display= t==='duration'?'block':'none'; }
+function openCalendar(ctx) { calendarContext = ctx; const ex = getCurrentEx(); calViewDate = new Date(ctx==='history'?viewDateStr:(ex.settings.startDate||new Date())); setCalendarView('days'); document.getElementById('calendar-panel').style.display='flex'; }
 function closeCalendar() { document.getElementById('calendar-panel').style.display='none'; }
-function setCalendarView(mode) {
-    calViewMode=mode;
-    const m=document.getElementById('cal-title-month'), y=document.getElementById('cal-title-year');
-    m.style.display='none'; m.classList.remove('active'); y.classList.remove('active');
-    if(mode==='days'){m.style.display='block';m.classList.add('active');y.classList.add('active');renderCalDays();}
-    else if(mode==='months'){y.classList.add('active');renderCalMonths();}
-    else {y.classList.add('active');renderCalYears();}
-}
-function navCalendar(d) {
-    if(calViewMode==='days')calViewDate.setMonth(calViewDate.getMonth()+d);
-    else if(calViewMode==='months')calViewDate.setFullYear(calViewDate.getFullYear()+d);
-    else calViewDate.setFullYear(calViewDate.getFullYear()+(d*10));
-    setCalendarView(calViewMode);
-}
-function renderCalDays() {
-    const g=document.getElementById('cal-grid'); g.className='cal-grid days'; g.innerHTML='';
-    const y=calViewDate.getFullYear(), m=calViewDate.getMonth();
-    // Use translated months
-    document.getElementById('cal-title-month').textContent=translations[state.lang].months[m];
-    document.getElementById('cal-title-year').textContent=y;
-    // Use translated days short
-    translations[state.lang].daysShort.forEach(d=>g.innerHTML+=`<div class="cal-day-header">${d}</div>`);
-    
-    const f=new Date(y,m,1).getDay()||7, dim=new Date(y,m+1,0).getDate(), lim=new Date(); lim.setDate(lim.getDate()-365); lim.setHours(0,0,0,0);
-    for(let i=1;i<f;i++)g.innerHTML+=`<div></div>`;
-    for(let d=1;d<=dim;d++){
-        const dojb=new Date(y,m,d), dStr=dojb.toDateString();
-        let cls='cal-cell';
-        if(dStr===new Date().toDateString())cls+=' today';
-        const selTarget = calendarContext==='history'?viewDateStr:getCurrentEx().settings.startDate;
-        const selComp = calendarContext==='history'?dStr:dojb.toISOString().split('T')[0];
-        if(selComp===selTarget)cls+=' selected';
-        if(state.dailyLog[dStr] && state.dailyLog[dStr].length>0) cls+=' has-data';
-        if(calendarContext==='setting' && dojb<lim) g.innerHTML+=`<div class="${cls} disabled">${d}</div>`;
-        else g.innerHTML+=`<div class="${cls}" onclick="selectDate('${dStr}')">${d}<div class="cal-dot"></div></div>`;
-    }
-}
-function renderCalMonths() {
-    const g=document.getElementById('cal-grid'); g.className='cal-grid months'; g.innerHTML='';
-    document.getElementById('cal-title-year').textContent=calViewDate.getFullYear();
-    translations[state.lang].months.forEach((m,i)=>{
-        let cls='cal-big-cell'; if(i===calViewDate.getMonth())cls+=' current';
-        for(let k in state.dailyLog){const d=new Date(k);if(d.getFullYear()===calViewDate.getFullYear() && d.getMonth()===i){cls+=' has-data'; break;}}
-        g.innerHTML+=`<div class="${cls}" onclick="calViewDate.setMonth(${i});setCalendarView('days')">${m}<div class="cal-dot"></div></div>`;
-    });
-}
-function renderCalYears() {
-    const g=document.getElementById('cal-grid'); g.className='cal-grid years'; g.innerHTML='';
-    const sy=Math.floor(calViewDate.getFullYear()/10)*10;
-    document.getElementById('cal-title-year').textContent=`${sy}-${sy+9}`;
-    for(let y=sy-1;y<=sy+10;y++){
-        let cls='cal-big-cell'; if(y===calViewDate.getFullYear())cls+=' current';
-        for(let k in state.dailyLog){if(new Date(k).getFullYear()===y){cls+=' has-data'; break;}}
-        g.innerHTML+=`<div class="${cls}" onclick="calViewDate.setFullYear(${y});setCalendarView('months')">${y}<div class="cal-dot"></div></div>`;
-    }
-}
-function selectDate(s) {
-    if(calendarContext==='history'){ viewDateStr=s; renderHistoryList(); }
-    else { 
-        const d=new Date(s), y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
-        document.getElementById('setting-start-date-display').textContent=formatDate(s);
-        getCurrentEx().settings.startDate = `${y}-${m}-${day}`;
-    }
-    closeCalendar();
-}
+function setCalendarView(mode) { calViewMode=mode; const m=document.getElementById('cal-title-month'), y=document.getElementById('cal-title-year'); m.style.display='none'; m.classList.remove('active'); y.classList.remove('active'); if(mode==='days'){m.style.display='block';m.classList.add('active');y.classList.add('active');renderCalDays();} else if(mode==='months'){y.classList.add('active');renderCalMonths();} else {y.classList.add('active');renderCalYears();} }
+function navCalendar(d) { if(calViewMode==='days')calViewDate.setMonth(calViewDate.getMonth()+d); else if(calViewMode==='months')calViewDate.setFullYear(calViewDate.getFullYear()+d); else calViewDate.setFullYear(calViewDate.getFullYear()+(d*10)); setCalendarView(calViewMode); }
+function renderCalDays() { const g=document.getElementById('cal-grid'); g.className='cal-grid days'; g.innerHTML=''; const y=calViewDate.getFullYear(), m=calViewDate.getMonth(); document.getElementById('cal-title-month').textContent=translations[state.lang].months[m]; document.getElementById('cal-title-year').textContent=y; translations[state.lang].daysShort.forEach(d=>g.innerHTML+=`<div class="cal-day-header">${d}</div>`); const f=new Date(y,m,1).getDay()||7, dim=new Date(y,m+1,0).getDate(), lim=new Date(); lim.setDate(lim.getDate()-365); lim.setHours(0,0,0,0); for(let i=1;i<f;i++)g.innerHTML+=`<div></div>`; for(let d=1;d<=dim;d++){ const dojb=new Date(y,m,d), dStr=dojb.toDateString(); let cls='cal-cell'; if(dStr===new Date().toDateString())cls+=' today'; const selTarget = calendarContext==='history'?viewDateStr:getCurrentEx().settings.startDate; const selComp = calendarContext==='history'?dStr:dojb.toISOString().split('T')[0]; if(selComp===selTarget)cls+=' selected'; if(state.dailyLog[dStr] && state.dailyLog[dStr].length>0) cls+=' has-data'; if(calendarContext==='setting' && dojb<lim) g.innerHTML+=`<div class="${cls} disabled">${d}</div>`; else g.innerHTML+=`<div class="${cls}" onclick="selectDate('${dStr}')">${d}<div class="cal-dot"></div></div>`; } }
+function renderCalMonths() { const g=document.getElementById('cal-grid'); g.className='cal-grid months'; g.innerHTML=''; document.getElementById('cal-title-year').textContent=calViewDate.getFullYear(); translations[state.lang].months.forEach((m,i)=>{ let cls='cal-big-cell'; if(i===calViewDate.getMonth())cls+=' current'; for(let k in state.dailyLog){const d=new Date(k);if(d.getFullYear()===calViewDate.getFullYear() && d.getMonth()===i){cls+=' has-data'; break;}} g.innerHTML+=`<div class="${cls}" onclick="calViewDate.setMonth(${i});setCalendarView('days')">${m}<div class="cal-dot"></div></div>`; }); }
+function renderCalYears() { const g=document.getElementById('cal-grid'); g.className='cal-grid years'; g.innerHTML=''; const sy=Math.floor(calViewDate.getFullYear()/10)*10; document.getElementById('cal-title-year').textContent=`${sy}-${sy+9}`; for(let y=sy-1;y<=sy+10;y++){ let cls='cal-big-cell'; if(y===calViewDate.getFullYear())cls+=' current'; for(let k in state.dailyLog){if(new Date(k).getFullYear()===y){cls+=' has-data'; break;}} g.innerHTML+=`<div class="${cls}" onclick="calViewDate.setFullYear(${y});setCalendarView('months')">${y}<div class="cal-dot"></div></div>`; } }
+function selectDate(s) { if(calendarContext==='history'){ viewDateStr=s; renderHistoryList(); } else { const d=new Date(s), y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); document.getElementById('setting-start-date-display').textContent=formatDate(s); getCurrentEx().settings.startDate = `${y}-${m}-${day}`; } closeCalendar(); }
 
-/* ===== BACKUP ===== */
+/* ===== BACKUP & MISC ===== */
 function toggleAdvanced(){document.getElementById('advanced-menu').classList.toggle('open');}
-function exportData(){
-    saveData();
-    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(state)],{type:"application/json"}));
-    a.download=`FitBsk_backup_${new Date().toISOString().split('T')[0]}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
-}
-function importData(inp){
-    const f=inp.files[0]; if(!f||!confirm(t('overwriteWarn')))return;
-    const r=new FileReader(); r.onload=e=>{
-        try{
-            state=JSON.parse(e.target.result); 
-            saveData(); 
-            loadData(); 
-            updateUI(false); 
-            alert(t('imported'));
-        }catch{alert(t('error'));}
-    };
-    r.readAsText(f); inp.value='';
-}
+function exportData(){ saveData(); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(state)],{type:"application/json"})); a.download=`FitBsk_backup_${new Date().toISOString().split('T')[0]}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
+function importData(inp){ const f=inp.files[0]; if(!f||!confirm(t('overwriteWarn')))return; const r=new FileReader(); r.onload=e=>{ try{ state=JSON.parse(e.target.result); saveData(); loadData(); updateUI(false); alert(t('imported')); }catch{alert(t('error'));} }; r.readAsText(f); inp.value=''; }
 
-slider.addEventListener("input",e=>{ const v=parseInt(e.target.value); if(v>=checkpointMin){currentTotalVal=v;updateUI(true);resetSessionTimer();} });
-
-// Wheel Logic
+slider.addEventListener("input",e=>{ if(getCurrentEx().settings.type === 'duration') return; const v=parseInt(e.target.value); if(v>=checkpointMin){currentTotalVal=v;updateUI(true);resetSessionTimer();} });
 const wBox=document.getElementById('wheel-container');
 let isD=false, lA=0;
 function getA(x,y){const r=wBox.getBoundingClientRect();return Math.atan2(y-(r.top+r.height/2),x-(r.left+r.width/2))*180/Math.PI;}
-wBox.addEventListener('touchstart',e=>{isD=true;lA=getA(e.touches[0].clientX,e.touches[0].clientY);manageWakeLock();},{passive:true});
-window.addEventListener('touchmove',e=>{if(!isD)return;const a=getA(e.touches[0].clientX,e.touches[0].clientY);let d=a-lA;if(d>180)d-=360;if(d<-180)d+=360;if(Math.abs(d)>10){add(d>0?1:-1);lA=a;}},{passive:false});
+wBox.addEventListener('touchstart',e=>{ if(getCurrentEx().settings.type==='duration')return; isD=true;lA=getA(e.touches[0].clientX,e.touches[0].clientY);manageWakeLock(); },{passive:true});
+window.addEventListener('touchmove',e=>{ if(!isD)return;const a=getA(e.touches[0].clientX,e.touches[0].clientY);let d=a-lA;if(d>180)d-=360;if(d<-180)d+=360;if(Math.abs(d)>10){add(d>0?1:-1);lA=a;} },{passive:false});
 window.addEventListener('touchend',()=>isD=false);
-wBox.addEventListener('mousedown',e=>{isD=true;lA=getA(e.clientX,e.clientY);manageWakeLock();});
+wBox.addEventListener('mousedown',e=>{ if(getCurrentEx().settings.type==='duration')return; isD=true;lA=getA(e.clientX,e.clientY);manageWakeLock(); });
 window.addEventListener('mousemove',e=>{if(!isD)return;const a=getA(e.clientX,e.clientY);let d=a-lA;if(d>180)d-=360;if(d<-180)d+=360;if(Math.abs(d)>10){add(d>0?1:-1);lA=a;}});
 window.addEventListener('mouseup',()=>isD=false);
 
